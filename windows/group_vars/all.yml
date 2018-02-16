@@ -1,0 +1,30 @@
+
+all:
+        ansible_ssh_user: rk
+        ansible_ssh_pass: Rbc@2020
+        ansible_ssh_port: 5986
+        ansible_connection: winrm
+        ansible_user: rk
+        ansible_password: Rbc@2020
+        ansible_port: 5986
+        ansible_winrm_server_cert_validation: ignore
+        #ansible_winrm_transport: ssl
+        vars:
+            mydir: C:\\Users\\rk
+            
+windows:
+        ansible_ssh_user: rk
+        ansible_ssh_pass: Rbc@2020
+        ansible_ssh_port: 5986
+        ansible_connection: winrm
+        ansible_user: rk
+        ansible_password: Rbc@2020
+        ansible_port: 5986
+        ansible_winrm_server_cert_validation: ignore
+        #ansible_winrm_transport: ssl
+        mydir: C:\\Users\\rk
+        user: ansible
+        password: Rk@ans17
+        group: deploy
+        group_desc : Deploy permission group
+        

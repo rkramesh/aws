@@ -1,0 +1,30 @@
+---
+
+- name: Creating New Ec2 Instances
+  ec2: 
+    region: "{{ ec2.region }}"
+    key_name: poc-staging-key
+    instance_tags: "{{ ec2.tags }}"
+    image: "{{ ec2.image }}"
+    instance_type: "{{ ec2.instance_type }}"
+    instance_profile_name: "{{ec2.role | default('') }}"
+#    group: "{{ ec2.sg }}"
+    vpc_subnet_id: "{{ ec2.subnet }}"
+#    assign_public_ip: "{{ ec2.public_ip | default('no') }}"
+#    private_ip: "{{ ec2.private_ip | default('') }}"
+    wait: true
+  register: ec2
+
+- name: Saving Ec2 Instance details to INFO file
+  copy: content={{ ec2.instances.0 }} dest=./inst_INFO
+
+- name: Adding Ec2  IP to inventory file
+  copy: content=[Ec2-servers]{{'\n'}}{{ ec2.instances.0.public_ip}} dest=./env/ans-hosts 
+
+- name: Add EC2 to ec2_hosts group
+  add_host: hostname={{  ec2.instances.0.public_ip  }} groups=ec2_hosts
+
+- name: Wait for SSH to come up..
+  wait_for: host={{ item }} port=22 delay=1 timeout=480 state=started
+  with_items:
+    - "{{ ec2.instances.0.public_ip }}"

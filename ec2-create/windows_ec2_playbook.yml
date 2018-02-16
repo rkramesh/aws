@@ -1,0 +1,17 @@
+- name: provision stack
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+#Launch the cloudformation-example.json template.  Register the output.
+
+  tasks:
+    - name: launching Windoes Ec2instance with cloud formation templates
+      cloudformation: >
+          stack_name="ansible-windows-cloudformation-2" state=present
+          region=us-east-2 disable_rollback=true
+          template=/home/ec2-user/aws/cloudformat/ec2-windows.template
+      register: stack
+    - name: show stack outputs
+      debug: msg="My stack outputs are {{stack.stack_outputs}}"
+

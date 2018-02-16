@@ -1,0 +1,34 @@
+---
+- name: Install Apache Server from an MSI package.
+  hosts: windows
+
+  tasks:
+    - name: Download the Apache installer
+      win_get_url:
+        url: 'https://archive.apache.org/dist/httpd/binaries/win32/httpd-2.2.25-win32-x86-no_ssl.msi'
+        dest: 'C:\Users\Administrator\Downloads\httpd-2.2.25-win32-x86-no_ssl.msi'
+
+    - name: Install Apache MSI package
+      win_package:
+        path: 'C:\Users\Administrator\Downloads\httpd-2.2.25-win32-x86-no_ssl.msi'
+        product_id: "{85262A06-2D8C-4BC1-B6ED-5A705D09CFFC}"
+
+    - name: Manually installing the Apache as a system service
+      win_shell: httpd.exe -k install
+      chdir: 'C:\Program Files (x86)\Apache Software Foundation\Apache2.2\bin'
+
+    - name: Enabling and starting the Apache service
+      win_service:
+        name: Apache2.2
+        start_mode: auto
+        state: started
+
+    - name: Create firewall rule for incoming TCP/80
+      win_firewall_rule:
+        name: Allow incoming HTTP traffic
+        enable: yes
+        state: present
+        localport: 80
+        action: allow
+        direction: In
+        protocol: TCP

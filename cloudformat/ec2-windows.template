@@ -1,0 +1,31 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description" : "Single Instance Windows stack creation using Ansible",
+  "Resources": {
+    "instanceid2558136": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "DisableApiTermination": "FALSE",
+        "ImageId": "ami-c87",
+        "InstanceType": "t2.micro",
+        "Monitoring": "false",
+        "KeyName": "poc-staging-key",
+        "NetworkInterfaces": [
+          {
+            "DeleteOnTermination": "true",
+            "DeviceIndex": 0,
+            "SubnetId": "subnet-9bf2",
+            "AssociatePublicIpAddress": "true"
+          }
+        ],
+        "Tags": [
+                    {
+                        "Key":   "Name",
+                        "Value": "RK-DEV-Windows"
+                    }
+                ],
+      }
+    }
+},
+  "Description": "Windows AMI"
+}

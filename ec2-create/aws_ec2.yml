@@ -1,0 +1,8 @@
+# Instance creation
+#
+- hosts: localhost
+  connection: local
+  roles:
+    - ec2
+#    - cloudformat
+  tags: ec2_rk_instance created by ansible

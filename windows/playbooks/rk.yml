@@ -1,0 +1,17 @@
+- hosts: all
+  gather_facts: no
+
+  #vars:
+  # mydir: C:\\Users\\rk
+    #ntp_srv_addr: 100.100.100.100
+    #testflag: true
+  roles:
+       - all
+  #  tasks:
+
+  # - include: win-dows.yml
+    #- include: pscx.yml tags=pscx
+    #- include: vagrant.yml tags=vagrant
+    #- include: v2.0.yml tags=unzip
+    #- include: test_block.yml
+    #- include: test_geturl.yml tags=getfile

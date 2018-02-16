@@ -1,0 +1,275 @@
+#!/usr/bin/env python
+
+# (c) 2013-2016 Serge van Ginderachter <serge@vanginderachter.be>
+#
+#
+# Ansible is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Ansible is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
+
+
+
+from __future__ import (absolute_import, print_function)
+__metaclass__ = type
+
+__requires__ = ['ansible']
+try:
+    import pkg_resources
+except Exception:
+    # Use pkg_resources to find the correct versions of libraries and set
+    # sys.path appropriately when there are multiversion installs.  But we
+    # have code that better expresses the errors in the places where the code
+    # is actually used (the deps are optional for many code paths) so we don't
+    # want to fail here.
+    pass
+
+import os
+import sys
+import traceback
+import yaml
+
+from ansible.errors import AnsibleError, AnsibleOptionsError, AnsibleParserError
+from ansible.utils.display import Display
+
+########################################################
+from ansible import constants as C
+from ansible.cli import CLI
+from ansible.errors import AnsibleOptionsError
+from ansible.inventory import Inventory
+from ansible.parsing.dataloader import DataLoader
+from ansible.parsing.splitter import parse_kv
+from ansible.utils.vars import load_extra_vars
+from ansible.vars import VariableManager
+from ansible.parsing.utils.jsonify import jsonify
+########################################################
+
+class InventoryCLI(CLI):
+    ''' code behind ansible-inventory cli'''
+
+    def parse(self):
+        ''' create an options parser for bin/ansible '''
+
+        self.parser = CLI.base_parser(
+            usage='%prog [host-pattern] [options]',
+            inventory_opts=True,
+            runtask_opts=True,
+            fork_opts=True,
+            vault_opts=True
+        )
+
+        # options unique to ansible-inventory
+        # dump
+        self.parser.add_option('-y', '--yaml', dest='yaml', action='store_true',
+            help="dump variables in yaml format")
+        self.parser.add_option('-j', '--json', '--list', dest='json', action='store_true',
+            help="dump inventory in InventoryScript json format")
+        self.parser.add_option('-p', '--pretty', dest='pretty', action='store_true',
+            help="dump inventory in pretty InventoryScript json format")
+        self.parser.add_option('-m', '--merge', dest='merge', action='store_true',
+            help="when dumping, merge host and group variables into host variables")
+        self.parser.add_option('--host', dest='host', action='store_true',
+            help="n/a for backwards compatibility as ansible inventory script")
+        # tree
+        self.parser.add_option('-t', '--tree', dest='tree', action='store_true',
+            help="print a tree/forest view of the inventory")
+        self.parser.add_option('-n', '--nodes', dest='nodes', action='store_true',
+            help="also show nodes when printing the inventory tree")
+        self.parser.add_option('-d', '--depth', dest='depth',
+            help="limit the inventory tree to this given depth")
+
+        self.options, self.args = self.parser.parse_args()
+
+        # need one of these options at least
+        if not (self.options.yaml or
+                self.options.json or
+                self.options.pretty or
+                self.options.host or
+                self.options.tree
+                ) or len(self.args) > 1:
+            self.parser.print_help()
+            sys.exit(1)
+        # only 1 arg needed, save it as an option
+        if len(self.args) == 0:
+            self.options.pattern = 'all'
+        else:
+            self.options.pattern = self.args[0]
+        if self.options.pretty:
+            self.options.json = True
+
+        display.verbosity = self.options.verbosity
+        self.validate_conflicts(vault_opts=True, fork_opts=True)
+
+        return True
+
+
+    def run(self):
+        ''' use Runner lib to do SSH things '''
+
+        super(InventoryCLI, self).run()
+
+        vault_pass = None
+
+        if self.options.vault_password_file:
+            # read vault_pass from a file
+            vault_pass = CLI.read_vault_password_file(self.options.vault_password_file)
+        elif self.options.ask_vault_pass:
+            vault_pass = self.ask_vault_passwords(ask_vault_pass=True, ask_new_vault_pass=False, confirm_new=False)[0]
+
+        loader = DataLoader()
+        variable_manager = VariableManager()
+
+        self.inventory = Inventory(loader=loader, variable_manager=variable_manager, host_list=self.options.inventory)
+        variable_manager.set_inventory(self.inventory)
+
+        hosts = self.inventory.list_hosts(self.options.pattern)
+        if len(hosts) == 0:
+            display.warning("provided hosts list is empty, only localhost is available")
+
+        if self.options.listhosts:
+            display.display('  hosts (%d):' % len(hosts))
+            for host in hosts:
+                display.display('    %s' % host)
+            return 0
+
+        if self.options.tree:
+            C.DEFAULT_CALLBACK_WHITELIST.append('tree')
+            C.TREE_DIR = self.options.tree
+
+        if self.options.host:
+            print ('{}')
+        elif self.options.json or cli.options.yaml:
+            results = cli.dump()
+        elif self.options.tree:
+            results = cli.tree()
+
+        return 0
+
+
+    def dump(self):
+
+        results = {'_meta': {'hostvars': {}}}
+
+        # get inventory groups, their vars, children and hosts into result set
+        groups = self.inventory.get_groups()
+        for group in groups.values():
+            host_list = [h.name for h in group.hosts ]
+            child_groups_list = [g.name for g in group.child_groups ]
+            results[group.name] = dict(children=child_groups_list, hosts=host_list)
+            # get groupvars into result set
+            if not self.options.merge:
+                results[group.name]['vars'] = group.get_vars()
+
+        # get hostvars into result set
+        hosts = self.inventory.get_hosts()
+        for host in hosts:
+            if not self.options.merge:
+                results['_meta']['hostvars'][host.name] = host.vars
+            else:
+                results['_meta']['hostvars'][host.name] = host.get_vars()
+
+
+        if self.options.yaml:
+            print (yaml.safe_dump(results))
+        else:
+            print (jsonify(results, format=self.options.pretty))
+
+        return results
+
+    # ----------------------------------------------
+
+    def tree(self):
+
+        if self.options.depth:
+            maxdepth = int(self.options.depth)
+        else:
+            maxdepth = None
+
+        def print_depth(name, depth, extra=""):
+
+            if depth !=  0:
+                tree = "|  " * (depth-1) + "|--"
+            else:
+                tree = ""
+            print ("%s %s %s" % (tree, name, extra))
+
+
+        def print_group_tree(group, maxdepth):
+
+            if maxdepth is None or group.depth <= maxdepth:
+                parent_groups_names = [ '%s(%s)' % (x.name, x.depth) for x in group.parent_groups ]
+                groups_hosts_names = [h.name for h in group.hosts]
+
+                print_depth(group.name, group.depth)
+                for child in group.child_groups:
+                    print_group_tree(child, maxdepth)
+                if self.options.nodes and len(groups_hosts_names) > 0:
+                    for h in groups_hosts_names:
+                        print_depth(h+'*', group.depth+1)
+
+        basegroup = self.inventory.get_group(self.options.pattern)
+        print_group_tree(basegroup, maxdepth)
+
+
+###############################################################################
+
+########################################
+### OUTPUT OF LAST RESORT ###
+class LastResort(object):
+    def display(self, msg):
+        print(msg, file=sys.stderr)
+
+    def error(self, msg, wrap_text=None):
+        print(msg, file=sys.stderr)
+
+
+########################################
+
+if __name__ == '__main__':
+
+    display = LastResort()
+    cli = None
+    me = os.path.basename(sys.argv[0])
+
+    try:
+        display = Display()
+        cli = InventoryCLI(sys.argv)
+        cli.parse()
+        sys.exit(cli.run())
+
+    except AnsibleOptionsError as e:
+        cli.parser.print_help()
+        display.error(str(e), wrap_text=False)
+        sys.exit(5)
+    except AnsibleParserError as e:
+        display.error(str(e), wrap_text=False)
+        sys.exit(4)
+# TQM takes care of these, but leaving comment to reserve the exit codes
+#    except AnsibleHostUnreachable as e:
+#        display.error(str(e))
+#        sys.exit(3)
+#    except AnsibleHostFailed as e:
+#        display.error(str(e))
+#        sys.exit(2)
+    except AnsibleError as e:
+        display.error(str(e), wrap_text=False)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        display.error("User interrupted execution")
+        sys.exit(99)
+    except Exception as e:
+        have_cli_options = cli is not None and cli.options is not None
+        display.error("Unexpected Exception: %s" % str(e), wrap_text=False)
+        if not have_cli_options or have_cli_options and cli.options.verbosity > 2:
+            display.display("the full traceback was:\n\n%s" % traceback.format_exc())
+        else:
+            display.display("to see the full traceback, use -vvv")
+        sys.exit(250)

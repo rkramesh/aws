@@ -1,0 +1,50 @@
+# EC2 Instance variable
+
+ec2:
+  region: us-east-2
+  project_name: PoC
+  env: staging
+  image: ami-38cd975d
+  sg: rk-security-grp 
+  instance_type: t2.micro
+  subnet: subnet-e6c9c5ac
+  public_ip: yes
+  tags:
+     Name: Dev-6
+  volumes:
+    - device_name: /dev/xvda
+      volume_type: Root
+      volume_size: 8
+
+cloudformat:
+  cloud_user: ec2-user
+  region: us-east-2
+  project_name: Poc-cloud
+  env: development
+  image: ami-38cd975d
+  sg: rk-security-grp 
+  instance_type: t2.micro
+  subnet: subnet-e6c9c5ac
+  public_ip: yes
+  tags:
+     Name: Dev-6
+  volumes:
+    - device_name: /dev/xvda
+      volume_type: Root
+      volume_size: 8
+windows:
+  region: us-east-2
+  project_name: Poc
+  env: staging
+  image: ami-c87257ad
+  sg: rk-security-grp
+  instance_type: t2.micro
+  subnet: subnet-e6c9c5ac
+  public_ip: yes
+  tags:
+     Name: Dev-6
+  volumes:
+    - device_name: /dev/xvda
+      volume_type: Root
+      volume_size: 8
+

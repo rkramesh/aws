@@ -1,0 +1,7 @@
+-   name: Create AWS instance
+    hosts: all
+    connection: local
+    gather_facts: False
+    roles:
+        - windows
+

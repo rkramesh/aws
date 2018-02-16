@@ -1,0 +1,16 @@
+
+-   name: Create AWS instance
+    hosts: 127.0.0.1
+    connection: local
+    gather_facts: False
+    remote_user: ec2-user
+    roles:
+        - cloudformat
+
+-   name: Add user keys
+    hosts: ec2_hosts
+    sudo: yes
+    sudo_user: root
+    remote_user: ec2-user
+    roles:
+        - users

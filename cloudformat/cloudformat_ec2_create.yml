@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Base AWS EC2 Instance - AMI
+Resources:
+  MyEC2Instance: #An inline comment
+    Type: AWS::EC2::Instance
+    Properties: 
+      AvailabilityZone : us-east-2c
+      ImageId: ami-38d
+      InstanceType: t2.micro
+      SubnetId: subnet-e5ac
+      SecurityGroups:
+         - rk-security-grp  
+       Tags:
+          - Key: Name
+            Value: dev2-cloudformation  
+       KeyName: Poc-staging-Dev-6-key
+       BlockDeviceMappings:
+          -
+           DeviceName: /dev/xvda
+           Ebs:                                        
+           VolumeType: gp2
+           VolumeSize: 8
+
+
+
